@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teams風 チーム報告アプリ</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-100 text-gray-800 h-screen flex flex-col font-sans">
+
+    <!-- ヘッダー -->
+    <header class="bg-slate-800 text-white px-6 py-3 flex justify-between items-center shadow-md z-10">
+        <div class="flex items-center gap-3">
+            <i class="fa-solid fa-people-group text-indigo-400 text-2xl"></i>
+            <h1 class="font-bold text-lg tracking-wide">Team Hub</h1>
+        </div>
+        <div id="auth-container" class="flex items-center gap-4">
+            <span id="user-info" class="text-sm text-slate-300 hidden"></span>
+            <button id="login-btn" onclick="loginWithGoogle()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-1.5 rounded-md font-medium text-sm transition shadow">
+                <i class="fa-brands fa-google mr-2"></i>Googleでログイン
+            </button>
+            <button id="logout-btn" onclick="logout()" class="text-slate-400 hover:text-white text-xs transition hidden">
+                ログアウト
+            </button>
+        </div>
+    </header>
+
+    <!-- メインコンテンツ（未ログイン時） -->
+    <div id="unauth-view" class="flex-1 flex flex-col items-center justify-center p-6 text-center">
+        <div class="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full border border-gray-200">
+            <i class="fa-solid fa-lock text-5xl text-indigo-500 mb-4"></i>
+            <h2 class="text-2xl font-bold mb-2">ログインが必要です</h2>
+            <p class="text-gray-500 text-sm mb-6">チームに参加・報告を行うには、Googleアカウントでログインしてください。</p>
+            <button onclick="loginWithGoogle()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition shadow-lg flex items-center justify-center gap-2">
+                <i class="fa-brands fa-google"></i> Googleでログインして始める
+            </button>
+        </div>
+    </div>
+
+    <!-- メインコンテンツ（ログイン後） -->
+    <div id="app-view" class="flex-1 flex overflow-hidden hidden">
+        
+        <!-- 左サイドバー：グループ一覧＆参加 -->
+        <aside class="w-80 bg-slate-900 text-slate-300 flex flex-col border-r border-slate-800">
+            
+            <div class="p-4 border-b border-slate-800 space-y-2">
+                <!-- 一般ユーザー用：コードで入室 -->
+                <button onclick="openJoinModal()" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 py-2 px-3 rounded-lg text-sm font-medium transition flex items-center justify-center gap-2 border border-slate-700">
+                    <i class="fa-solid fa-key text-indigo-400"></i> 入室コードを入力して参加
+                </button>
+                
+                <!-- 管理者用：新規グループ作成 -->
+                <button id="create-group-btn" onclick="openCreateModal()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-2 px-3 rounded-lg text-sm font-medium transition flex items-center justify-center gap-2 shadow hidden">
+                    <i class="fa-solid fa-plus"></i> 新規グループを作成 (管理者)
+                </button>
+            </div>
+
+            <!-- 参加中グループリスト -->
+            <div class="flex-1 overflow-y-auto p-3 space-y-1" id="group-list">
+                <p class="text-xs text-slate-500 p-2">参加中のグループ</p>
+            </div>
+            
+            <!-- 管理者権限切り替えスイッチ -->
+            <div class="p-3 border-t border-slate-800 bg-slate-950/50 flex justify-between items-center text-xs">
+                <span class="text-slate-400">管理者モード:</span>
+                <button id="admin-toggle-btn" onclick="toggleAdminRole()" class="px-2.5 py-1 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 font-mono">
+                    OFF
+                </button>
+            </div>
+        </aside>
+
+        <!-- 右メインエリア：グループ内チャット -->
+        <main class="flex-1 flex flex-col bg-slate-50">
+            
+            <div id="no-group-selected" class="flex-1 flex flex-col items-center justify-center text-gray-400">
+                <i class="fa-regular fa-comments text-6xl mb-3 text-gray-300"></i>
+                <p class="text-sm">左側のリストからグループを選択するか、入室コードで参加してください</p>
+            </div>
+
+            <div id="group-active-content" class="flex-1 flex flex-col h-full hidden">
+                
+                <div class="bg-white px-6 py-4 border-b border-gray-200 flex justify-between items-center shadow-sm">
+                    <div>
+                        <h2 id="current-group-title" class="text-lg font-bold text-gray-800">グループ名</h2>
+                        <p id="current-group-desc" class="text-xs text-gray-500">説明文</p>
+                    </div>
+                    <div>
+                        <span id="current-group-code" class="bg-slate-100 text-slate-600 font-mono text-xs px-2.5 py-1 rounded border border-slate-200">
+                            コード: ------
+                        </span>
+                    </div>
+                </div>
+
+                <!-- タイムライン -->
+                <div id="message-timeline" class="flex-1 overflow-y-auto p-6 space-y-4"></div>
+
+                <!-- 投稿フォーム -->
+                <div class="p-4 bg-white border-t border-gray-200">
+                    <form onsubmit="handlePostMessage(event)" class="flex gap-2">
+                        <input type="text" id="post-input" placeholder="グループへ報告メッセージを入力..." required class="flex-1 border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl text-sm font-bold transition shadow flex items-center gap-1">
+                            <i class="fa-solid fa-paper-plane"></i> 送信
+                        </button>
+                    </form>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- モーダル：コード入力 -->
+    <div id="join-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center hidden z-50">
+        <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+            <h3 class="text-lg font-bold mb-1">グループに入室</h3>
+            <p class="text-xs text-gray-500 mb-4">共有された入室コードを入力してください</p>
+            <form onsubmit="handleJoinGroup(event)">
+                <input type="text" id="join-code-input" placeholder="例: ABC123" required class="w-full border border-gray-300 rounded-lg p-2.5 font-mono text-center text-lg tracking-widest uppercase mb-4 focus:ring-2 focus:ring-indigo-500 outline-none">
+                <div class="flex justify-end gap-2">
+                    <button type="button" onclick="closeJoinModal()" class="px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded-lg">キャンセル</button>
+                    <button type="submit" class="px-4 py-2 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold">参加する</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- モーダル：グループ作成 -->
+    <div id="create-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center hidden z-50">
+        <div class="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
+            <h3 class="text-lg font-bold mb-1">新規グループ作成</h3>
+            <p class="text-xs text-gray-500 mb-4">メンバーを招待するための入室コードを発行します</p>
+            <form onsubmit="handleCreateGroup(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">グループ名</label>
+                    <input type="text" id="create-title-input" placeholder="例: 営業本部 報告チャネル" required class="w-full border rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">説明 (任意)</label>
+                    <input type="text" id="create-desc-input" placeholder="例: 日次進捗報告用" class="w-full border rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">入室コード（半角英数）</label>
+                    <input type="text" id="create-code-input" placeholder="例: TEAM2026" required class="w-full border rounded-lg p-2 font-mono text-sm uppercase outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="closeCreateModal()" class="px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded-lg">キャンセル</button>
+                    <button type="submit" class="px-4 py-2 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold">作成</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Firebase SDK & アプリのプログラム -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, collection, addDoc, doc, setDoc, getDoc, getDocs, query, where, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        // ==========================================
+        // ▼ ここにFirebaseの設定情報を貼り付けてください ▼
+        // ==========================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyDNYfcTAGa7kiLsi9akQ4OxG3HAjoaiTJ8",
+            authDomain: "music-51427.firebaseapp.com",
+            projectId: "music-51427",
+            storageBucket: "music-51427.firebasestorage.app",
+            messagingSenderId: "771180148192",
+            appId: "1:771180148192:web:774b50e2cb9728d7972785"
+        };
+        // ==========================================
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const provider = new GoogleAuthProvider();
+
+        let currentUser = null;
+        let isAdmin = false;
+        let myGroups = [];
+        let currentGroupId = null;
+        let unsubscribeMessages = null;
+
+        window.loginWithGoogle = async () => {
+            try { await signInWithPopup(auth, provider); }
+            catch (e) { alert("ログインエラー: " + e.message); }
+        };
+        window.logout = () => signOut(auth);
+
+        onAuthStateChanged(auth, async (user) => {
+            currentUser = user;
+            const unauthView = document.getElementById('unauth-view');
+            const appView = document.getElementById('app-view');
+            const userInfo = document.getElementById('user-info');
+            const loginBtn = document.getElementById('login-btn');
+            const logoutBtn = document.getElementById('logout-btn');
+
+            if (user) {
+                unauthView.classList.add('hidden');
+                appView.classList.remove('hidden');
+                userInfo.textContent = `${user.displayName} さん`;
+                userInfo.classList.remove('hidden');
+                loginBtn.classList.add('hidden');
+                logoutBtn.classList.remove('hidden');
+
+                await setDoc(doc(db, "users", user.uid), {
+                    name: user.displayName,
+                    email: user.email,
+                    photoURL: user.photoURL
+                }, { merge: true });
+
+                loadUserGroups();
+            } else {
+                unauthView.classList.remove('hidden');
+                appView.classList.add('hidden');
+                userInfo.classList.add('hidden');
+                loginBtn.classList.remove('hidden');
+                logoutBtn.classList.add('hidden');
+            }
+        });
+
+        window.toggleAdminRole = () => {
+            isAdmin = !isAdmin;
+            const btn = document.getElementById('admin-toggle-btn');
+            const createBtn = document.getElementById('create-group-btn');
+            if (isAdmin) {
+                btn.textContent = "ON";
+                btn.className = "px-2.5 py-1 rounded bg-indigo-600 text-white font-bold font-mono";
+                createBtn.classList.remove('hidden');
+            } else {
+                btn.textContent = "OFF";
+                btn.className = "px-2.5 py-1 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 font-mono";
+                createBtn.classList.add('hidden');
+            }
+        };
+
+        async function loadUserGroups() {
+            if (!currentUser) return;
+            const q = query(collection(db, "memberships"), where("uid", "==", currentUser.uid));
+            const snapshot = await getDocs(q);
+            const groupIds = snapshot.docs.map(doc => doc.data().groupId);
+
+            myGroups = [];
+            for (let id of groupIds) {
+                const gDoc = await getDoc(doc(db, "groups", id));
+                if (gDoc.exists()) {
+                    myGroups.push({ id: gDoc.id, ...gDoc.data() });
+                }
+            }
+            renderGroupList();
+        }
+
+        function renderGroupList() {
+            const listEl = document.getElementById('group-list');
+            listEl.innerHTML = `<p class="text-xs text-slate-500 p-2">参加中のグループ (${myGroups.length})</p>`;
+            
+            myGroups.forEach(g => {
+                const activeClass = g.id === currentGroupId ? "bg-indigo-600 text-white" : "hover:bg-slate-800 text-slate-300";
+                const item = document.createElement('div');
+                item.className = `p-3 rounded-xl cursor-pointer transition flex items-center gap-3 ${activeClass}`;
+                item.onclick = () => selectGroup(g.id);
+                item.innerHTML = `
+                    <i class="fa-solid fa-hashtag text-slate-400"></i>
+                    <div class="overflow-hidden">
+                        <div class="font-semibold text-sm truncate">${escapeHTML(g.title)}</div>
+                        <div class="text-xs opacity-70 truncate">${escapeHTML(g.desc || '')}</div>
+                    </div>
+                `;
+                listEl.appendChild(item);
+            });
+        }
+
+        function selectGroup(groupId) {
+            currentGroupId = groupId;
+            const group = myGroups.find(g => g.id === groupId);
+            if (!group) return;
+
+            document.getElementById('no-group-selected').classList.add('hidden');
+            document.getElementById('group-active-content').classList.remove('hidden');
+            document.getElementById('current-group-title').textContent = group.title;
+            document.getElementById('current-group-desc').textContent = group.desc || '説明なし';
+            document.getElementById('current-group-code').textContent = `コード: ${group.code}`;
+
+            renderGroupList();
+            listenMessages(groupId);
+        }
+
+        function listenMessages(groupId) {
+            if (unsubscribeMessages) unsubscribeMessages();
+
+            const q = query(collection(db, `groups/${groupId}/messages`), orderBy("createdAt", "asc"));
+            unsubscribeMessages = onSnapshot(q, (snapshot) => {
+                const timeline = document.getElementById('message-timeline');
+                timeline.innerHTML = '';
+
+                snapshot.forEach(docSnap => {
+                    const msg = docSnap.data();
+                    const isMe = currentUser && msg.uid === currentUser.uid;
+                    const timeStr = msg.createdAt ? msg.createdAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '送信中...';
+
+                    const msgEl = document.createElement('div');
+                    msgEl.className = `flex gap-3 ${isMe ? 'flex-row-reverse' : ''}`;
+                    msgEl.innerHTML = `
+                        <img src="${msg.photoURL || 'https://via.placeholder.com/40'}" class="w-9 h-9 rounded-full object-cover shadow-sm">
+                        <div class="max-w-md">
+                            <div class="text-xs text-gray-500 mb-1 ${isMe ? 'text-right' : ''}">${escapeHTML(msg.userName)} <span class="text-[10px] text-gray-400 ml-1">${timeStr}</span></div>
+                            <div class="p-3 rounded-2xl text-sm ${isMe ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-white text-gray-800 rounded-tl-none shadow-sm border border-gray-100'}">
+                                ${escapeHTML(msg.text)}
+                            </div>
+                        </div>
+                    `;
+                    timeline.appendChild(msgEl);
+                });
+                timeline.scrollTop = timeline.scrollHeight;
+            });
+        }
+
+        window.handlePostMessage = async (e) => {
+            e.preventDefault();
+            if (!currentGroupId || !currentUser) return;
+            const input = document.getElementById('post-input');
+            const text = input.value.trim();
+            if (!text) return;
+
+            input.value = '';
+            await addDoc(collection(db, `groups/${currentGroupId}/messages`), {
+                uid: currentUser.uid,
+                userName: currentUser.displayName,
+                photoURL: currentUser.photoURL,
+                text: text,
+                createdAt: serverTimestamp()
+            });
+        };
+
+        window.openJoinModal = () => document.getElementById('join-modal').classList.remove('hidden');
+        window.closeJoinModal = () => document.getElementById('join-modal').classList.add('hidden');
+        window.openCreateModal = () => document.getElementById('create-modal').classList.remove('hidden');
+        window.closeCreateModal = () => document.getElementById('create-modal').classList.add('hidden');
+
+        window.handleJoinGroup = async (e) => {
+            e.preventDefault();
+            const code = document.getElementById('join-code-input').value.trim().toUpperCase();
+            if (!code) return;
+
+            const q = query(collection(db, "groups"), where("code", "==", code));
+            const snapshot = await getDocs(q);
+
+            if (snapshot.empty) {
+                alert("該当するグループが見つかりません。入室コードを確認してください。");
+                return;
+            }
+
+            const groupDoc = snapshot.docs[0];
+            const groupId = groupDoc.id;
+
+            await addDoc(collection(db, "memberships"), {
+                uid: currentUser.uid,
+                groupId: groupId,
+                joinedAt: serverTimestamp()
+            });
+
+            closeJoinModal();
+            document.getElementById('join-code-input').value = '';
+            await loadUserGroups();
+            selectGroup(groupId);
+        };
+
+        window.handleCreateGroup = async (e) => {
+            e.preventDefault();
+            if (!isAdmin) return alert("管理者権限が必要です");
+
+            const title = document.getElementById('create-title-input').value.trim();
+            const desc = document.getElementById('create-desc-input').value.trim();
+            const code = document.getElementById('create-code-input').value.trim().toUpperCase();
+
+            const q = query(collection(db, "groups"), where("code", "==", code));
+            const snapshot = await getDocs(q);
+            if (!snapshot.empty) {
+                alert("この入室コードはすでに使われています。別のコードにしてください。");
+                return;
+            }
+
+            const groupRef = await addDoc(collection(db, "groups"), {
+                title,
+                desc,
+                code,
+                createdBy: currentUser.uid,
+                createdAt: serverTimestamp()
+            });
+
+            await addDoc(collection(db, "memberships"), {
+                uid: currentUser.uid,
+                groupId: groupRef.id,
+                joinedAt: serverTimestamp()
+            });
+
+            closeCreateModal();
+            document.getElementById('create-title-input').value = '';
+            document.getElementById('create-desc-input').value = '';
+            document.getElementById('create-code-input').value = '';
+
+            await loadUserGroups();
+            selectGroup(groupRef.id);
+        };
+
+        function escapeHTML(str) {
+            return str ? str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)) : '';
+        }
+    </script>
+</body>
+</html>
