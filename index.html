@@ -60,7 +60,7 @@
             
             <div class="p-3 border-t border-slate-800 bg-slate-950/50 flex justify-between items-center text-xs">
                 <span class="text-slate-400">管理者モード:</span>
-                <button id="admin-toggle-btn" onclick="toggleAdminRole()" class="px-2.5 py-1 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 font-mono">
+                <button id="admin-toggle-btn" onclick="promptAdminPassword()" class="px-2.5 py-1 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 font-mono">
                     OFF
                 </button>
             </div>
@@ -89,7 +89,7 @@
                 <!-- 内部レイアウト：左にフォーラム（トピック）一覧、右に選択中のトピックのチャット -->
                 <div class="flex-1 flex overflow-hidden">
                     
-                    <!-- トピック一覧（Discordのフォーラムチャンネル一覧風） -->
+                    <!-- トピック一覧 -->
                     <div class="w-80 bg-white border-r border-gray-200 flex flex-col">
                         <div class="p-3 border-b border-gray-200 flex justify-between items-center bg-gray-50">
                             <span class="text-xs font-bold text-gray-600 uppercase tracking-wider"><i class="fa-solid fa-list-ul mr-1"></i> フォーラム（話題一覧）</span>
@@ -203,7 +203,7 @@
         import { getFirestore, collection, addDoc, doc, setDoc, getDoc, getDocs, query, where, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         // ==========================================
-        // ▼ Firebase設定（ご自身のコードをそのまま入れてください） ▼
+        // ▼ Firebase設定（ご自身のコード） ▼
         // ==========================================
         const firebaseConfig = {
             apiKey: "AIzaSyDNYfcTAGa7kiLsi9akQ4OxG3HAjoaiTJ8",
@@ -228,6 +228,9 @@
         let currentTopicId = null;
         let unsubscribeTopics = null;
         let unsubscribeMessages = null;
+
+        // ★ 管理者用パスワード（ここで自由に変更できます）
+        const ADMIN_PASSWORD = "Tomoya@0317";
 
         window.loginWithGoogle = async () => {
             try { await signInWithPopup(auth, provider); }
@@ -267,8 +270,28 @@
             }
         });
 
-        window.toggleAdminRole = () => {
-            isAdmin = !isAdmin;
+        // ★ 管理者モードON時にパスワードを求める処理
+        window.promptAdminPassword = () => {
+            if (isAdmin) {
+                // すでにONならOFFに戻す
+                isAdmin = false;
+                updateAdminUI();
+                return;
+            }
+
+            const inputPass = prompt("管理者パスワードを入力してください：");
+            if (inputPass === null) return; // キャンセルされた場合
+
+            if (inputPass === ADMIN_PASSWORD) {
+                isAdmin = true;
+                updateAdminUI();
+                alert("管理者モードが有効になりました。");
+            } else {
+                alert("パスワードが違います。");
+            }
+        };
+
+        function updateAdminUI() {
             const btn = document.getElementById('admin-toggle-btn');
             const createBtn = document.getElementById('create-group-btn');
             if (isAdmin) {
@@ -280,7 +303,7 @@
                 btn.className = "px-2.5 py-1 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 font-mono";
                 createBtn.classList.add('hidden');
             }
-        };
+        }
 
         async function loadUserGroups() {
             if (!currentUser) return;
@@ -337,7 +360,6 @@
             listenTopics(groupId);
         }
 
-        // トピック一覧をリアルタイム監視
         function listenTopics(groupId) {
             if (unsubscribeTopics) unsubscribeTopics();
 
@@ -376,10 +398,9 @@
             document.getElementById('current-topic-author').textContent = `作成者: ${authorName || 'メンバー'}`;
 
             listenMessages(currentGroupId, topicId);
-            listenTopics(currentGroupId); // 選択状態のハイライト更新用
+            listenTopics(currentGroupId);
         }
 
-        // 選択中トピックのメッセージ（返信）をリアルタイム監視
         function listenMessages(groupId, topicId) {
             if (unsubscribeMessages) unsubscribeMessages();
 
