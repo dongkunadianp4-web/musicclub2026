@@ -81,9 +81,15 @@
                         <h2 id="current-group-title" class="text-base font-bold text-gray-800">グループ名</h2>
                         <p id="current-group-desc" class="text-xs text-gray-500">説明文</p>
                     </div>
-                    <span id="current-group-code" class="bg-slate-100 text-slate-600 font-mono text-xs px-2.5 py-1 rounded border border-slate-200">
-                        コード: ------
-                    </span>
+                    <div class="flex items-center gap-3">
+                        <span id="current-group-code" class="bg-slate-100 text-slate-600 font-mono text-xs px-2.5 py-1 rounded border border-slate-200">
+                            コード: ------
+                        </span>
+                        <!-- グループ削除ボタン（管理者のみ表示） -->
+                        <button id="delete-group-btn" onclick="handleDeleteGroup()" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs px-3 py-1.5 rounded-lg font-bold transition hidden flex items-center gap-1 shadow-sm">
+                            <i class="fa-solid fa-trash-can"></i> グループ削除
+                        </button>
+                    </div>
                 </div>
 
                 <!-- 内部レイアウト：左にフォーラム（トピック）一覧、右に選択中のトピックのチャット -->
@@ -200,10 +206,10 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, collection, addDoc, doc, setDoc, getDoc, getDocs, query, where, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, deleteDoc, doc, setDoc, getDoc, getDocs, query, where, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         // ==========================================
-        // ▼ Firebase設定（ご自身のコード） ▼
+        // ▼ Firebase設定 ▼
         // ==========================================
         const firebaseConfig = {
             apiKey: "AIzaSyDNYfcTAGa7kiLsi9akQ4OxG3HAjoaiTJ8",
@@ -229,7 +235,6 @@
         let unsubscribeTopics = null;
         let unsubscribeMessages = null;
 
-        // ★ 管理者用パスワード（ここで自由に変更できます）
         const ADMIN_PASSWORD = "Tomoya@0317";
 
         window.loginWithGoogle = async () => {
@@ -270,17 +275,15 @@
             }
         });
 
-        // ★ 管理者モードON時にパスワードを求める処理
         window.promptAdminPassword = () => {
             if (isAdmin) {
-                // すでにONならOFFに戻す
                 isAdmin = false;
                 updateAdminUI();
                 return;
             }
 
             const inputPass = prompt("管理者パスワードを入力してください：");
-            if (inputPass === null) return; // キャンセルされた場合
+            if (inputPass === null) return;
 
             if (inputPass === ADMIN_PASSWORD) {
                 isAdmin = true;
@@ -294,14 +297,18 @@
         function updateAdminUI() {
             const btn = document.getElementById('admin-toggle-btn');
             const createBtn = document.getElementById('create-group-btn');
+            const deleteGroupBtn = document.getElementById('delete-group-btn');
+
             if (isAdmin) {
                 btn.textContent = "ON";
                 btn.className = "px-2.5 py-1 rounded bg-indigo-600 text-white font-bold font-mono";
                 createBtn.classList.remove('hidden');
+                if (currentGroupId) deleteGroupBtn.classList.remove('hidden');
             } else {
                 btn.textContent = "OFF";
                 btn.className = "px-2.5 py-1 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 font-mono";
                 createBtn.classList.add('hidden');
+                deleteGroupBtn.classList.add('hidden');
             }
         }
 
@@ -356,6 +363,14 @@
             document.getElementById('current-group-desc').textContent = group.desc || '説明なし';
             document.getElementById('current-group-code').textContent = `コード: ${group.code}`;
 
+            // 管理者モードならグループ削除ボタンを表示
+            const deleteGroupBtn = document.getElementById('delete-group-btn');
+            if (isAdmin) {
+                deleteGroupBtn.classList.remove('hidden');
+            } else {
+                deleteGroupBtn.classList.add('hidden');
+            }
+
             renderGroupList();
             listenTopics(groupId);
         }
@@ -374,17 +389,37 @@
                 }
 
                 snapshot.forEach(docSnap => {
-                    const topic = docSnap.id;
+                    const topicId = docSnap.id;
                     const data = docSnap.data();
-                    const isActive = topic === currentTopicId;
+                    const isActive = topicId === currentTopicId;
+                    const canDelete = isAdmin || (currentUser && data.createdBy === currentUser.uid);
 
                     const item = document.createElement('div');
-                    item.className = `p-3 cursor-pointer transition hover:bg-indigo-50 ${isActive ? 'bg-indigo-50 border-l-4 border-indigo-600' : ''}`;
-                    item.onclick = () => selectTopic(topic, data.title, data.createdByUserName);
-                    item.innerHTML = `
+                    item.className = `p-3 transition hover:bg-indigo-50 flex justify-between items-center ${isActive ? 'bg-indigo-50 border-l-4 border-indigo-600' : ''}`;
+                    
+                    // 左側をクリックしたときのみ選択
+                    const infoDiv = document.createElement('div');
+                    infoDiv.className = "flex-1 cursor-pointer overflow-hidden pr-2";
+                    infoDiv.onclick = () => selectTopic(topicId, data.title, data.createdByUserName);
+                    infoDiv.innerHTML = `
                         <div class="font-bold text-xs text-gray-800 truncate mb-1"><i class="fa-regular fa-comments text-indigo-500 mr-1"></i> ${escapeHTML(data.title)}</div>
                         <div class="text-[10px] text-gray-400">作成者: ${escapeHTML(data.createdByUserName || 'メンバー')}</div>
                     `;
+                    item.appendChild(infoDiv);
+
+                    // 削除権限がある場合のみゴミ箱アイコンを表示
+                    if (canDelete) {
+                        const deleteBtn = document.createElement('button');
+                        deleteBtn.className = "text-gray-400 hover:text-red-600 p-1.5 transition text-xs";
+                        deleteBtn.title = "トピックを削除";
+                        deleteBtn.innerHTML = '<i class="fa-solid fa-trash-can"></i>';
+                        deleteBtn.onclick = (e) => {
+                            e.stopPropagation();
+                            handleDeleteTopic(topicId, data.title);
+                        };
+                        item.appendChild(deleteBtn);
+                    }
+
                     topicList.appendChild(item);
                 });
             });
@@ -446,6 +481,54 @@
                 text: text,
                 createdAt: serverTimestamp()
             });
+        };
+
+        // ★ トピック削除処理
+        async function handleDeleteTopic(topicId, topicTitle) {
+            if (!confirm(`トピック「${topicTitle}」を削除しますか？`)) return;
+            try {
+                await deleteDoc(doc(db, `groups/${currentGroupId}/topics`, topicId));
+                if (currentTopicId === topicId) {
+                    currentTopicId = null;
+                    document.getElementById('no-topic-selected').classList.remove('hidden');
+                    document.getElementById('topic-active-content').classList.add('hidden');
+                }
+            } catch (e) {
+                alert("削除エラー: " + e.message);
+            }
+        }
+
+        // ★ グループ削除処理（管理者限定）
+        window.handleDeleteGroup = async () => {
+            if (!isAdmin) return alert("管理者権限が必要です");
+            const group = myGroups.find(g => g.id === currentGroupId);
+            if (!group) return;
+
+            if (!confirm(`本当にグループ「${group.title}」を削除しますか？\n（この操作は取り消せません）`)) return;
+
+            try {
+                // 1. 該当グループのメンバーシップ情報を一括削除
+                const memQuery = query(collection(db, "memberships"), where("groupId", "==", currentGroupId));
+                const memSnapshot = await getDocs(memQuery);
+                for (let mDoc of memSnapshot.docs) {
+                    await deleteDoc(doc(db, "memberships", mDoc.id));
+                }
+
+                // 2. グループ本体を削除
+                await deleteDoc(doc(db, "groups", currentGroupId));
+
+                // 3. 画面をリセット
+                currentGroupId = null;
+                currentTopicId = null;
+                document.getElementById('group-active-content').classList.add('hidden');
+                document.getElementById('no-group-selected').classList.remove('hidden');
+                document.getElementById('delete-group-btn').classList.add('hidden');
+
+                await loadUserGroups();
+                alert("グループを削除しました。");
+            } catch (e) {
+                alert("グループ削除エラー: " + e.message);
+            }
         };
 
         window.openJoinModal = () => document.getElementById('join-modal').classList.remove('hidden');
