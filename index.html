@@ -122,7 +122,8 @@
                             <p class="text-xs">トピックを選択してください</p>
                         </div>
 
-                        <div id="topic-active-content" class="flex-1 flex flex-col h-full hidden">
+                        <div id="topic-active-content" class="flex-1 flex flex-col h-full hidden overflow-hidden">
+                            <!-- トピックヘッダー -->
                             <div class="bg-white px-3 md:px-4 py-2 border-b border-gray-200 shadow-sm flex items-center justify-between flex-shrink-0">
                                 <div class="flex items-center gap-2 overflow-hidden">
                                     <button onclick="backToTopicList()" class="md:hidden text-indigo-600 hover:text-indigo-800 text-xs font-bold px-2.5 py-1.5 bg-indigo-50 rounded-lg border border-indigo-200 flex items-center gap-1">
@@ -135,13 +136,17 @@
                                 </div>
                             </div>
 
-                            <!-- メッセージタイムライン (スクロール領域) -->
+                            <!-- アナウンス（固定ピン留め）エリア -->
+                            <div id="announcement-bar" class="hidden bg-amber-50 border-b border-amber-200 px-3 py-2 text-xs text-amber-900 flex-shrink-0 shadow-inner">
+                                <div id="announcement-content" class="flex justify-between items-start gap-2"></div>
+                            </div>
+
+                            <!-- メッセージタイムライン -->
                             <div id="message-timeline" class="flex-1 overflow-y-auto p-3 md:p-4 space-y-3"></div>
 
-                            <!-- メッセージ＆画像送信フォーム（タスクバー・キーボードの上部に浮くようにパディングと高さを最適化） -->
+                            <!-- メッセージ＆画像送信フォーム -->
                             <div class="p-2 md:p-3 bg-white border-t border-gray-200 shadow-lg flex-shrink-0 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]">
                                 <form onsubmit="handlePostMessage(event)" class="flex flex-col gap-2">
-                                    <!-- 画像プレビュー領域 -->
                                     <div id="image-preview-container" class="hidden relative inline-block w-20 h-20">
                                         <img id="image-preview" src="" class="w-full h-full object-cover rounded-lg border border-gray-300">
                                         <button type="button" onclick="clearImage()" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center shadow"><i class="fa-solid fa-xmark"></i></button>
@@ -159,8 +164,8 @@
                                             <i class="fa-solid fa-paper-plane"></i> <span class="hidden sm:inline">送信</span>
                                         </button>
                                     </div>
-                            </form>
-                        </div>
+                                </form>
+                            </div>
                         </div>
                     </div>
 
@@ -240,7 +245,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, collection, addDoc, deleteDoc, doc, setDoc, getDoc, getDocs, query, where, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, deleteDoc, updateDoc, doc, setDoc, getDoc, getDocs, query, where, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDNYfcTAGa7kiLsi9akQ4OxG3HAjoaiTJ8",
@@ -265,6 +270,7 @@
         let unsubscribeTopics = null;
         let unsubscribeMessages = null;
         let selectedBase64Image = null;
+        let isAnnouncementExpanded = false; // アナウンス開閉状態
 
         const ADMIN_PASSWORD = "Tomoya@0317";
 
@@ -350,6 +356,7 @@
             if (isAdmin) {
                 isAdmin = false;
                 updateAdminUI();
+                listenMessages(currentGroupId, currentTopicId);
                 return;
             }
 
@@ -359,6 +366,7 @@
             if (inputPass === ADMIN_PASSWORD) {
                 isAdmin = true;
                 updateAdminUI();
+                listenMessages(currentGroupId, currentTopicId);
                 alert("管理者モードが有効になりました。");
             } else {
                 alert("パスワードが違います。");
@@ -527,7 +535,9 @@
             listenTopics(currentGroupId);
         }
 
+        // メッセージとアナウンスの監視・描画
         function listenMessages(groupId, topicId) {
+            if (!groupId || !topicId) return;
             if (unsubscribeMessages) unsubscribeMessages();
 
             const q = query(collection(db, `groups/${groupId}/topics/${topicId}/messages`), orderBy("createdAt", "asc"));
@@ -535,33 +545,179 @@
                 const timeline = document.getElementById('message-timeline');
                 timeline.innerHTML = '';
 
+                const announcements = []; // アナウンス対象メッセージ格納用
+
                 snapshot.forEach(docSnap => {
+                    const msgId = docSnap.id;
                     const msg = docSnap.data();
                     const isMe = currentUser && msg.uid === currentUser.uid;
                     const timeStr = msg.createdAt ? msg.createdAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '送信中...';
+
+                    if (msg.isAnnouncement) {
+                        announcements.push({ id: msgId, ...msg });
+                    }
 
                     const msgEl = document.createElement('div');
                     msgEl.className = `flex gap-3 ${isMe ? 'flex-row-reverse' : ''}`;
                     
                     let imageHtml = msg.image ? `<img src="${msg.image}" class="mt-2 rounded-lg max-w-full max-h-48 object-cover">` : '';
-                    let textHtml = msg.text ? `<div class="break-words">${escapeHTML(msg.text)}</div>` : '';
+                    let editedBadge = msg.isEdited ? `<span class="text-[9px] opacity-75 ml-1.5 font-normal">(編集済み)</span>` : '';
+                    let textHtml = msg.text ? `<div id="msg-text-${msgId}" class="break-words">${escapeHTML(msg.text)}${editedBadge}</div>` : '';
+
+                    // アナウンスボタン表示
+                    let annBtnClass = msg.isAnnouncement ? "text-amber-500 font-bold" : "text-gray-400 hover:text-amber-500";
+                    let annBtn = `<button onclick="toggleAnnouncement('${msgId}', ${!msg.isAnnouncement})" class="${annBtnClass} transition" title="${msg.isAnnouncement ? 'アナウンス解除' : 'アナウンスに追加'}"><i class="fa-solid fa-bullhorn"></i></button>`;
+
+                    // 編集ボタン（本人限定）
+                    let editBtn = isMe ? `<button onclick="startEditMessage('${msgId}', \`${escapeHTML(msg.text || '')}\`)" class="text-gray-400 hover:text-indigo-600 transition" title="編集"><i class="fa-solid fa-pen"></i></button>` : '';
+
+                    // 削除ボタン（本人または管理者権限）
+                    let canDelete = isMe || isAdmin;
+                    let deleteBtn = canDelete ? `<button onclick="handleDeleteMessage('${msgId}')" class="text-gray-400 hover:text-red-600 transition" title="削除"><i class="fa-solid fa-trash-can"></i></button>` : '';
 
                     msgEl.innerHTML = `
                         <img src="${msg.photoURL || 'https://via.placeholder.com/40'}" class="w-8 h-8 rounded-full object-cover shadow-sm flex-shrink-0">
-                        <div class="max-w-[75%] md:max-w-md">
-                            <div class="text-[10px] text-gray-500 mb-0.5 ${isMe ? 'text-right' : ''}">${escapeHTML(msg.userName)} <span class="text-gray-400 ml-1">${timeStr}</span></div>
-                            <div class="p-2.5 rounded-xl text-xs ${isMe ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-white text-gray-800 rounded-tl-none shadow-sm border border-gray-100'}">
+                        <div class="max-w-[75%] md:max-w-md group relative">
+                            <div class="text-[10px] text-gray-500 mb-0.5 flex items-center gap-1.5 ${isMe ? 'flex-row-reverse' : ''}">
+                                <span>${escapeHTML(msg.userName)}</span>
+                                <span class="text-gray-400">${timeStr}</span>
+                            </div>
+                            <div class="p-2.5 rounded-xl text-xs relative ${isMe ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-white text-gray-800 rounded-tl-none shadow-sm border border-gray-100'}">
                                 ${textHtml}
                                 ${imageHtml}
+                            </div>
+                            <!-- 操作ボタン群 -->
+                            <div class="flex items-center gap-2 mt-1 text-[11px] ${isMe ? 'justify-end' : 'justify-start'}">
+                                ${annBtn}
+                                ${editBtn}
+                                ${deleteBtn}
                             </div>
                         </div>
                     `;
                     timeline.appendChild(msgEl);
                 });
+
+                renderAnnouncementBar(announcements);
                 timeline.scrollTop = timeline.scrollHeight;
             });
         }
 
+        // アナウンス（帯）表示ロジック
+        function renderAnnouncementBar(announcements) {
+            const bar = document.getElementById('announcement-bar');
+            const content = document.getElementById('announcement-content');
+
+            if (announcements.length === 0) {
+                bar.classList.add('hidden');
+                return;
+            }
+
+            bar.classList.remove('hidden');
+
+            if (announcements.length === 1) {
+                const ann = announcements[0];
+                content.innerHTML = `
+                    <div class="flex items-center gap-2 overflow-hidden flex-1">
+                        <i class="fa-solid fa-bullhorn text-amber-600 flex-shrink-0"></i>
+                        <span class="font-bold flex-shrink-0">${escapeHTML(ann.userName)}:</span>
+                        <span class="truncate">${escapeHTML(ann.text || '[画像]')}</span>
+                    </div>
+                    <button onclick="toggleAnnouncement('${ann.id}', false)" class="text-amber-700 hover:text-amber-900 text-xs px-1 flex-shrink-0" title="解除"><i class="fa-solid fa-xmark"></i></button>
+                `;
+            } else {
+                // 2件以上の場合
+                const latest = announcements[announcements.length - 1];
+                let listHtml = '';
+                if (isAnnouncementExpanded) {
+                    listHtml = `<div class="mt-2 space-y-1.5 pt-2 border-t border-amber-200">` +
+                        announcements.map(ann => `
+                            <div class="flex justify-between items-center gap-2 bg-amber-100/50 p-1.5 rounded">
+                                <span class="truncate flex-1"><strong>${escapeHTML(ann.userName)}:</strong> ${escapeHTML(ann.text || '[画像]')}</span>
+                                <button onclick="toggleAnnouncement('${ann.id}', false)" class="text-amber-700 hover:text-red-600 text-xs px-1"><i class="fa-solid fa-xmark"></i></button>
+                            </div>
+                        `).join('') +
+                        `</div>`;
+                }
+
+                content.innerHTML = `
+                    <div class="w-full">
+                        <div class="flex justify-between items-center gap-2 cursor-pointer" onclick="toggleAnnouncementAccordion()">
+                            <div class="flex items-center gap-2 overflow-hidden flex-1">
+                                <i class="fa-solid fa-bullhorn text-amber-600 flex-shrink-0"></i>
+                                <span class="font-bold flex-shrink-0">${escapeHTML(latest.userName)}:</span>
+                                <span class="truncate">${escapeHTML(latest.text || '[画像]')}</span>
+                            </div>
+                            <span class="text-[11px] font-bold bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full flex-shrink-0 flex items-center gap-1">
+                                他 ${announcements.length - 1} 件 <i class="fa-solid ${isAnnouncementExpanded ? 'fa-chevron-up' : 'fa-chevron-down'} text-[10px]"></i>
+                            </span>
+                        </div>
+                        ${listHtml}
+                    </div>
+                `;
+            }
+        }
+
+        window.toggleAnnouncementAccordion = () => {
+            isAnnouncementExpanded = !isAnnouncementExpanded;
+            listenMessages(currentGroupId, currentTopicId);
+        };
+
+        // アナウンスの切り替え（追加・解除）
+        window.toggleAnnouncement = async (msgId, setAnnouncement) => {
+            if (!currentGroupId || !currentTopicId) return;
+            try {
+                await updateDoc(doc(db, `groups/${currentGroupId}/topics/${currentTopicId}/messages`, msgId), {
+                    isAnnouncement: setAnnouncement
+                });
+            } catch (e) {
+                alert("アナウンス更新エラー: " + e.message);
+            }
+        };
+
+        // メッセージ編集モードに入る
+        window.startEditMessage = (msgId, currentText) => {
+            const textContainer = document.getElementById(`msg-text-${msgId}`);
+            if (!textContainer) return;
+
+            textContainer.innerHTML = `
+                <div class="flex flex-col gap-1 mt-1">
+                    <input type="text" id="edit-input-${msgId}" value="${currentText}" class="border border-indigo-300 rounded p-1 text-xs text-gray-800 outline-none focus:ring-1 focus:ring-indigo-500">
+                    <div class="flex justify-end gap-1">
+                        <button onclick="listenMessages('${currentGroupId}', '${currentTopicId}')" class="px-2 py-0.5 bg-gray-200 text-gray-700 rounded text-[10px]">キャンセル</button>
+                        <button onclick="saveEditMessage('${msgId}')" class="px-2 py-0.5 bg-indigo-600 text-white rounded text-[10px] font-bold">保存</button>
+                    </div>
+                </div>
+            `;
+        };
+
+        // メッセージ保存（(編集済み) バッジ付き）
+        window.saveEditMessage = async (msgId) => {
+            const input = document.getElementById(`edit-input-${msgId}`);
+            if (!input) return;
+            const newText = input.value.trim();
+            if (!newText) return;
+
+            try {
+                await updateDoc(doc(db, `groups/${currentGroupId}/topics/${currentTopicId}/messages`, msgId), {
+                    text: newText,
+                    isEdited: true
+                });
+            } catch (e) {
+                alert("編集エラー: " + e.message);
+            }
+        };
+
+        // メッセージ削除（送信者本人または管理者）
+        window.handleDeleteMessage = async (msgId) => {
+            if (!confirm("このコメントを削除しますか？")) return;
+            try {
+                await deleteDoc(doc(db, `groups/${currentGroupId}/topics/${currentTopicId}/messages`, msgId));
+            } catch (e) {
+                alert("削除エラー: " + e.message);
+            }
+        };
+
+        // 新規メッセージ・画像送信処理
         window.handlePostMessage = async (e) => {
             e.preventDefault();
             if (!currentGroupId || !currentTopicId || !currentUser) return;
@@ -575,6 +731,8 @@
                 userName: currentUser.displayName,
                 photoURL: currentUser.photoURL,
                 text: text,
+                isAnnouncement: false,
+                isEdited: false,
                 createdAt: serverTimestamp()
             };
 
