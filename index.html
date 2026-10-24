@@ -9,10 +9,10 @@
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
-<body class="bg-gray-100 text-gray-800 h-screen flex flex-col font-sans overflow-hidden">
+<body class="bg-gray-100 text-gray-800 h-[100dvh] flex flex-col font-sans overflow-hidden">
 
     <!-- ヘッダー -->
-    <header class="bg-slate-800 text-white px-4 md:px-6 py-3 flex justify-between items-center shadow-md z-40">
+    <header class="bg-slate-800 text-white px-4 md:px-6 py-3 flex justify-between items-center shadow-md z-40 flex-shrink-0">
         <div class="flex items-center gap-3">
             <button onclick="toggleSidebar()" class="md:hidden text-slate-300 hover:text-white p-1.5 focus:outline-none">
                 <i class="fa-solid fa-bars text-xl"></i>
@@ -81,7 +81,7 @@
 
             <!-- グループ選択時 -->
             <div id="group-active-content" class="flex-1 flex flex-col h-full hidden">
-                <div class="bg-white px-4 md:px-6 py-2.5 border-b border-gray-200 flex flex-wrap justify-between items-center gap-2 shadow-sm">
+                <div class="bg-white px-4 md:px-6 py-2.5 border-b border-gray-200 flex flex-wrap justify-between items-center gap-2 shadow-sm flex-shrink-0">
                     <div class="overflow-hidden">
                         <h2 id="current-group-title" class="text-sm md:text-base font-bold text-gray-800 truncate">グループ名</h2>
                         <p id="current-group-desc" class="text-[11px] md:text-xs text-gray-500 truncate">説明文</p>
@@ -104,7 +104,7 @@
                     
                     <!-- トピック一覧 -->
                     <div id="topic-container" class="w-full md:w-80 bg-white border-r border-gray-200 flex flex-col h-full absolute md:relative inset-0 z-10">
-                        <div class="p-2.5 md:p-3 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+                        <div class="p-2.5 md:p-3 border-b border-gray-200 flex justify-between items-center bg-gray-50 flex-shrink-0">
                             <span class="text-xs font-bold text-gray-600 uppercase tracking-wider"><i class="fa-solid fa-list-ul mr-1"></i> フォーラム一覧</span>
                             <button onclick="openTopicModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-2.5 py-1.5 rounded-lg font-bold transition flex items-center gap-1 shadow-sm">
                                 <i class="fa-solid fa-pen-to-square"></i> 新規トピック
@@ -123,7 +123,7 @@
                         </div>
 
                         <div id="topic-active-content" class="flex-1 flex flex-col h-full hidden">
-                            <div class="bg-white px-3 md:px-4 py-2 border-b border-gray-200 shadow-sm flex items-center justify-between">
+                            <div class="bg-white px-3 md:px-4 py-2 border-b border-gray-200 shadow-sm flex items-center justify-between flex-shrink-0">
                                 <div class="flex items-center gap-2 overflow-hidden">
                                     <button onclick="backToTopicList()" class="md:hidden text-indigo-600 hover:text-indigo-800 text-xs font-bold px-2.5 py-1.5 bg-indigo-50 rounded-lg border border-indigo-200 flex items-center gap-1">
                                         <i class="fa-solid fa-arrow-left"></i> 一覧へ
@@ -135,10 +135,11 @@
                                 </div>
                             </div>
 
+                            <!-- メッセージタイムライン (スクロール領域) -->
                             <div id="message-timeline" class="flex-1 overflow-y-auto p-3 md:p-4 space-y-3"></div>
 
-                            <!-- メッセージ＆画像送信フォーム -->
-                            <div class="p-2 md:p-3 bg-white border-t border-gray-200">
+                            <!-- メッセージ＆画像送信フォーム（タスクバー・キーボードの上部に浮くようにパディングと高さを最適化） -->
+                            <div class="p-2 md:p-3 bg-white border-t border-gray-200 shadow-lg flex-shrink-0 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]">
                                 <form onsubmit="handlePostMessage(event)" class="flex flex-col gap-2">
                                     <!-- 画像プレビュー領域 -->
                                     <div id="image-preview-container" class="hidden relative inline-block w-20 h-20">
@@ -147,20 +148,19 @@
                                     </div>
 
                                     <div class="flex gap-2 items-center">
-                                        <!-- 画像選択ボタン -->
-                                        <label class="cursor-pointer bg-gray-100 hover:bg-gray-200 text-gray-600 px-3 py-2 rounded-lg text-xs transition flex items-center justify-center border border-gray-300">
+                                        <label class="cursor-pointer bg-gray-100 hover:bg-gray-200 text-gray-600 px-3 py-2.5 rounded-lg text-xs transition flex items-center justify-center border border-gray-300 flex-shrink-0">
                                             <i class="fa-regular fa-image text-sm"></i>
                                             <input type="file" id="image-input" accept="image/*" onchange="previewImage(event)" class="hidden">
                                         </label>
 
-                                        <input type="text" id="post-input" placeholder="メッセージまたは返信を入力..." class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                        <input type="text" id="post-input" placeholder="メッセージまたは返信を入力..." class="flex-1 border border-gray-300 rounded-lg px-3 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
                                         
-                                        <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 md:px-4 py-2 rounded-lg text-xs font-bold transition shadow flex items-center gap-1">
+                                        <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 md:px-4 py-2.5 rounded-lg text-xs font-bold transition shadow flex items-center gap-1 flex-shrink-0">
                                             <i class="fa-solid fa-paper-plane"></i> <span class="hidden sm:inline">送信</span>
                                         </button>
                                     </div>
-                                </form>
-                            </div>
+                            </form>
+                        </div>
                         </div>
                     </div>
 
@@ -264,11 +264,10 @@
         let currentTopicId = null;
         let unsubscribeTopics = null;
         let unsubscribeMessages = null;
-        let selectedBase64Image = null; // 選択された画像のデータ
+        let selectedBase64Image = null;
 
         const ADMIN_PASSWORD = "Tomoya@0317";
 
-        // 画像選択時のプレビュー処理
         window.previewImage = (event) => {
             const file = event.target.files[0];
             if (!file) return;
@@ -282,7 +281,6 @@
             reader.readAsDataURL(file);
         };
 
-        // 選択した画像をクリア
         window.clearImage = () => {
             selectedBase64Image = null;
             document.getElementById('image-input').value = '';
@@ -545,7 +543,6 @@
                     const msgEl = document.createElement('div');
                     msgEl.className = `flex gap-3 ${isMe ? 'flex-row-reverse' : ''}`;
                     
-                    // 画像がついている場合のHTML構成
                     let imageHtml = msg.image ? `<img src="${msg.image}" class="mt-2 rounded-lg max-w-full max-h-48 object-cover">` : '';
                     let textHtml = msg.text ? `<div class="break-words">${escapeHTML(msg.text)}</div>` : '';
 
@@ -565,7 +562,6 @@
             });
         }
 
-        // メッセージと画像の送信処理
         window.handlePostMessage = async (e) => {
             e.preventDefault();
             if (!currentGroupId || !currentTopicId || !currentUser) return;
