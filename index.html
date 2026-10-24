@@ -9,18 +9,22 @@
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
-<body class="bg-gray-100 text-gray-800 h-screen flex flex-col font-sans">
+<body class="bg-gray-100 text-gray-800 h-screen flex flex-col font-sans overflow-hidden">
 
     <!-- ヘッダー -->
-    <header class="bg-slate-800 text-white px-6 py-3 flex justify-between items-center shadow-md z-10">
+    <header class="bg-slate-800 text-white px-4 md:px-6 py-3 flex justify-between items-center shadow-md z-30">
         <div class="flex items-center gap-3">
-            <i class="fa-solid fa-people-group text-indigo-400 text-2xl"></i>
-            <h1 class="font-bold text-lg tracking-wide">Team Hub Forum</h1>
+            <!-- スマホ用メニュー開閉ボタン -->
+            <button onclick="toggleSidebar()" class="md:hidden text-slate-300 hover:text-white p-1.5 focus:outline-none">
+                <i class="fa-solid fa-bars text-xl"></i>
+            </button>
+            <i class="fa-solid fa-people-group text-indigo-400 text-xl md:text-2xl"></i>
+            <h1 class="font-bold text-base md:text-lg tracking-wide">Team Hub</h1>
         </div>
-        <div id="auth-container" class="flex items-center gap-4">
-            <span id="user-info" class="text-sm text-slate-300 hidden"></span>
-            <button id="login-btn" onclick="loginWithGoogle()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-1.5 rounded-md font-medium text-sm transition shadow">
-                <i class="fa-brands fa-google mr-2"></i>Googleでログイン
+        <div id="auth-container" class="flex items-center gap-3">
+            <span id="user-info" class="text-xs md:text-sm text-slate-300 hidden"></span>
+            <button id="login-btn" onclick="loginWithGoogle()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-md font-medium text-xs md:text-sm transition shadow">
+                <i class="fa-brands fa-google mr-1.5"></i>ログイン
             </button>
             <button id="logout-btn" onclick="logout()" class="text-slate-400 hover:text-white text-xs transition hidden">
                 ログアウト
@@ -41,10 +45,13 @@
     </div>
 
     <!-- ログイン後メイン画面 -->
-    <div id="app-view" class="flex-1 flex overflow-hidden hidden">
+    <div id="app-view" class="flex-1 flex relative overflow-hidden hidden">
         
+        <!-- モバイル用背景オーバーレイ -->
+        <div id="sidebar-overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/50 z-20 hidden md:hidden"></div>
+
         <!-- 左サイドバー：グループ一覧 -->
-        <aside class="w-72 bg-slate-900 text-slate-300 flex flex-col border-r border-slate-800">
+        <aside id="sidebar" class="absolute md:relative inset-y-0 left-0 w-72 bg-slate-900 text-slate-300 flex flex-col border-r border-slate-800 z-30 transform -translate-x-full md:translate-x-0 transition-transform duration-200 ease-in-out">
             <div class="p-4 border-b border-slate-800 space-y-2">
                 <button onclick="openJoinModal()" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 py-2 px-3 rounded-lg text-sm font-medium transition flex items-center justify-center gap-2 border border-slate-700">
                     <i class="fa-solid fa-key text-indigo-400"></i> コードでグループ参加
@@ -67,38 +74,42 @@
         </aside>
 
         <!-- メインエリア -->
-        <main class="flex-1 flex flex-col bg-slate-50 overflow-hidden">
+        <main class="flex-1 flex flex-col bg-slate-50 overflow-hidden w-full">
             
-            <div id="no-group-selected" class="flex-1 flex flex-col items-center justify-center text-gray-400">
-                <i class="fa-regular fa-comments text-6xl mb-3 text-gray-300"></i>
-                <p class="text-sm">左側のリストからグループを選択してください</p>
+            <div id="no-group-selected" class="flex-1 flex flex-col items-center justify-center text-gray-400 p-6 text-center">
+                <i class="fa-regular fa-comments text-5xl md:text-6xl mb-3 text-gray-300"></i>
+                <p class="text-sm">左上のメニューからグループを選択してください</p>
             </div>
 
             <!-- グループ選択時 -->
             <div id="group-active-content" class="flex-1 flex flex-col h-full hidden">
-                <div class="bg-white px-6 py-3 border-b border-gray-200 flex justify-between items-center shadow-sm">
-                    <div>
-                        <h2 id="current-group-title" class="text-base font-bold text-gray-800">グループ名</h2>
-                        <p id="current-group-desc" class="text-xs text-gray-500">説明文</p>
+                <div class="bg-white px-4 md:px-6 py-2.5 border-b border-gray-200 flex flex-wrap justify-between items-center gap-2 shadow-sm">
+                    <div class="overflow-hidden">
+                        <h2 id="current-group-title" class="text-sm md:text-base font-bold text-gray-800 truncate">グループ名</h2>
+                        <p id="current-group-desc" class="text-[11px] md:text-xs text-gray-500 truncate">説明文</p>
                     </div>
-                    <div class="flex items-center gap-3">
-                        <span id="current-group-code" class="bg-slate-100 text-slate-600 font-mono text-xs px-2.5 py-1 rounded border border-slate-200">
+                    <div class="flex items-center gap-2">
+                        <span id="current-group-code" class="bg-slate-100 text-slate-600 font-mono text-[11px] md:text-xs px-2 py-1 rounded border border-slate-200">
                             コード: ------
                         </span>
+                        <!-- メンバー管理ボタン（管理者のみ表示） -->
+                        <button id="manage-members-btn" onclick="openMembersModal()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 text-xs px-2.5 py-1 rounded-lg font-bold transition hidden items-center gap-1 shadow-sm">
+                            <i class="fa-solid fa-users-gear"></i> メンバー管理
+                        </button>
                         <!-- グループ削除ボタン（管理者のみ表示） -->
-                        <button id="delete-group-btn" onclick="handleDeleteGroup()" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs px-3 py-1.5 rounded-lg font-bold transition hidden flex items-center gap-1 shadow-sm">
-                            <i class="fa-solid fa-trash-can"></i> グループ削除
+                        <button id="delete-group-btn" onclick="handleDeleteGroup()" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs px-2.5 py-1 rounded-lg font-bold transition hidden items-center gap-1 shadow-sm">
+                            <i class="fa-solid fa-trash-can"></i> 削除
                         </button>
                     </div>
                 </div>
 
-                <!-- 内部レイアウト：左にフォーラム（トピック）一覧、右に選択中のトピックのチャット -->
-                <div class="flex-1 flex overflow-hidden">
+                <!-- 内部レイアウト -->
+                <div class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
                     
                     <!-- トピック一覧 -->
-                    <div class="w-80 bg-white border-r border-gray-200 flex flex-col">
-                        <div class="p-3 border-b border-gray-200 flex justify-between items-center bg-gray-50">
-                            <span class="text-xs font-bold text-gray-600 uppercase tracking-wider"><i class="fa-solid fa-list-ul mr-1"></i> フォーラム（話題一覧）</span>
+                    <div id="topic-container" class="w-full md:w-80 bg-white border-r border-gray-200 flex flex-col h-full">
+                        <div class="p-2.5 md:p-3 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+                            <span class="text-xs font-bold text-gray-600 uppercase tracking-wider"><i class="fa-solid fa-list-ul mr-1"></i> フォーラム一覧</span>
                             <button onclick="openTopicModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-2.5 py-1.5 rounded-lg font-bold transition flex items-center gap-1 shadow-sm">
                                 <i class="fa-solid fa-pen-to-square"></i> 新規トピック
                             </button>
@@ -109,30 +120,32 @@
                     </div>
 
                     <!-- 選択されたトピックのチャット詳細 -->
-                    <div class="flex-1 flex flex-col bg-slate-50">
-                        <div id="no-topic-selected" class="flex-1 flex flex-col items-center justify-center text-gray-400">
-                            <i class="fa-regular fa-folder-open text-5xl mb-2 text-gray-300"></i>
-                            <p class="text-xs">左側からトピック（話題）を選択してください</p>
+                    <div id="chat-container" class="flex-1 flex flex-col bg-slate-50 h-full">
+                        <div id="no-topic-selected" class="flex-1 flex flex-col items-center justify-center text-gray-400 p-6 text-center">
+                            <i class="fa-regular fa-folder-open text-4xl md:text-5xl mb-2 text-gray-300"></i>
+                            <p class="text-xs">トピックを選択してください</p>
                         </div>
 
                         <div id="topic-active-content" class="flex-1 flex flex-col h-full hidden">
-                            <!-- トピックヘッダー -->
-                            <div class="bg-white px-4 py-2.5 border-b border-gray-200 shadow-sm flex items-center justify-between">
-                                <div>
-                                    <h3 id="current-topic-title" class="text-sm font-bold text-gray-800">トピック名</h3>
-                                    <span id="current-topic-author" class="text-[10px] text-gray-400">作成者: </span>
+                            <div class="bg-white px-3 md:px-4 py-2 border-b border-gray-200 shadow-sm flex items-center justify-between">
+                                <div class="flex items-center gap-2 overflow-hidden">
+                                    <button onclick="backToTopicList()" class="md:hidden text-indigo-600 hover:text-indigo-800 text-xs font-bold px-2 py-1 bg-indigo-50 rounded border border-indigo-100">
+                                        <i class="fa-solid fa-arrow-left mr-1"></i>一覧
+                                    </button>
+                                    <div class="overflow-hidden">
+                                        <h3 id="current-topic-title" class="text-xs md:text-sm font-bold text-gray-800 truncate">トピック名</h3>
+                                        <span id="current-topic-author" class="text-[10px] text-gray-400">作成者: </span>
+                                    </div>
                                 </div>
                             </div>
 
-                            <!-- メッセージタイムライン -->
-                            <div id="message-timeline" class="flex-1 overflow-y-auto p-4 space-y-3"></div>
+                            <div id="message-timeline" class="flex-1 overflow-y-auto p-3 md:p-4 space-y-3"></div>
 
-                            <!-- メッセージ送信フォーム -->
-                            <div class="p-3 bg-white border-t border-gray-200">
+                            <div class="p-2 md:p-3 bg-white border-t border-gray-200">
                                 <form onsubmit="handlePostMessage(event)" class="flex gap-2">
-                                    <input type="text" id="post-input" placeholder="このトピックに返信を入力..." required class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                                    <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition shadow flex items-center gap-1">
-                                        <i class="fa-solid fa-paper-plane"></i> 返信
+                                    <input type="text" id="post-input" placeholder="返信を入力..." required class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                    <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 md:px-4 py-2 rounded-lg text-xs font-bold transition shadow flex items-center gap-1">
+                                        <i class="fa-solid fa-paper-plane"></i> <span class="hidden sm:inline">送信</span>
                                     </button>
                                 </form>
                             </div>
@@ -144,8 +157,22 @@
         </main>
     </div>
 
+    <!-- モーダル：メンバー管理（キック用） -->
+    <div id="members-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center hidden z-50 p-4">
+        <div class="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl flex flex-col max-h-[80vh]">
+            <h3 class="text-lg font-bold mb-1">メンバー管理（キック）</h3>
+            <p class="text-xs text-gray-500 mb-4">グループに参加しているメンバーの一覧です</p>
+            <div id="members-list" class="flex-1 overflow-y-auto divide-y divide-gray-100 mb-4 pr-1">
+                <!-- メンバーリストがここに動的に入ります -->
+            </div>
+            <div class="flex justify-end pt-2 border-t border-gray-100">
+                <button type="button" onclick="closeMembersModal()" class="px-4 py-2 text-sm bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-bold">閉じる</button>
+            </div>
+        </div>
+    </div>
+
     <!-- モーダル：グループ入室 -->
-    <div id="join-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center hidden z-50">
+    <div id="join-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center hidden z-50 p-4">
         <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
             <h3 class="text-lg font-bold mb-1">グループに入室</h3>
             <p class="text-xs text-gray-500 mb-4">共有された入室コードを入力してください</p>
@@ -160,7 +187,7 @@
     </div>
 
     <!-- モーダル：グループ作成 -->
-    <div id="create-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center hidden z-50">
+    <div id="create-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center hidden z-50 p-4">
         <div class="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
             <h3 class="text-lg font-bold mb-1">新規グループ作成</h3>
             <form onsubmit="handleCreateGroup(event)" class="space-y-4 mt-3">
@@ -185,14 +212,14 @@
     </div>
 
     <!-- モーダル：新規トピック作成 -->
-    <div id="topic-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center hidden z-50">
+    <div id="topic-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center hidden z-50 p-4">
         <div class="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
-            <h3 class="text-lg font-bold mb-1">新規トピック（話題）作成</h3>
-            <p class="text-xs text-gray-500 mb-4">フォーラムに新しい議論の部屋を作ります</p>
+            <h3 class="text-lg font-bold mb-1">新規トピック作成</h3>
+            <p class="text-xs text-gray-500 mb-4">新しい議論の部屋を作ります</p>
             <form onsubmit="handleCreateTopic(event)" class="space-y-4">
                 <div>
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">トピック名（タイトル）</label>
-                    <input type="text" id="topic-title-input" placeholder="例: 【要相談】今後のスケジュールについて" required class="w-full border rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">トピック名</label>
+                    <input type="text" id="topic-title-input" placeholder="例: 今後のスケジュールについて" required class="w-full border rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
                 </div>
                 <div class="flex justify-end gap-2 pt-2">
                     <button type="button" onclick="closeTopicModal()" class="px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded-lg">キャンセル</button>
@@ -208,9 +235,6 @@
         import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { getFirestore, collection, addDoc, deleteDoc, doc, setDoc, getDoc, getDocs, query, where, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        // ==========================================
-        // ▼ Firebase設定 ▼
-        // ==========================================
         const firebaseConfig = {
             apiKey: "AIzaSyDNYfcTAGa7kiLsi9akQ4OxG3HAjoaiTJ8",
             authDomain: "music-51427.firebaseapp.com",
@@ -220,7 +244,6 @@
             appId: "1:771180148192:web:774b50e2cb9728d7972785",
             measurementId: "G-0ZMERMXW3B"
         };
-        // ==========================================
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
@@ -236,6 +259,19 @@
         let unsubscribeMessages = null;
 
         const ADMIN_PASSWORD = "Tomoya@0317";
+
+        window.toggleSidebar = () => {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            sidebar.classList.toggle('-translate-x-full');
+            overlay.classList.toggle('hidden');
+        };
+
+        window.backToTopicList = () => {
+            currentTopicId = null;
+            document.getElementById('no-topic-selected').classList.remove('hidden');
+            document.getElementById('topic-active-content').classList.add('hidden');
+        };
 
         window.loginWithGoogle = async () => {
             try { await signInWithPopup(auth, provider); }
@@ -298,17 +334,22 @@
             const btn = document.getElementById('admin-toggle-btn');
             const createBtn = document.getElementById('create-group-btn');
             const deleteGroupBtn = document.getElementById('delete-group-btn');
+            const manageMembersBtn = document.getElementById('manage-members-btn');
 
             if (isAdmin) {
                 btn.textContent = "ON";
                 btn.className = "px-2.5 py-1 rounded bg-indigo-600 text-white font-bold font-mono";
                 createBtn.classList.remove('hidden');
-                if (currentGroupId) deleteGroupBtn.classList.remove('hidden');
+                if (currentGroupId) {
+                    deleteGroupBtn.classList.remove('hidden');
+                    manageMembersBtn.classList.remove('hidden');
+                }
             } else {
                 btn.textContent = "OFF";
                 btn.className = "px-2.5 py-1 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 font-mono";
                 createBtn.classList.add('hidden');
                 deleteGroupBtn.classList.add('hidden');
+                manageMembersBtn.classList.add('hidden');
             }
         }
 
@@ -336,7 +377,10 @@
                 const activeClass = g.id === currentGroupId ? "bg-indigo-600 text-white" : "hover:bg-slate-800 text-slate-300";
                 const item = document.createElement('div');
                 item.className = `p-3 rounded-xl cursor-pointer transition flex items-center gap-3 ${activeClass}`;
-                item.onclick = () => selectGroup(g.id);
+                item.onclick = () => {
+                    selectGroup(g.id);
+                    if (window.innerWidth < 768) toggleSidebar();
+                };
                 item.innerHTML = `
                     <i class="fa-solid fa-hashtag text-slate-400"></i>
                     <div class="overflow-hidden">
@@ -363,12 +407,14 @@
             document.getElementById('current-group-desc').textContent = group.desc || '説明なし';
             document.getElementById('current-group-code').textContent = `コード: ${group.code}`;
 
-            // 管理者モードならグループ削除ボタンを表示
             const deleteGroupBtn = document.getElementById('delete-group-btn');
+            const manageMembersBtn = document.getElementById('manage-members-btn');
             if (isAdmin) {
                 deleteGroupBtn.classList.remove('hidden');
+                manageMembersBtn.classList.remove('hidden');
             } else {
                 deleteGroupBtn.classList.add('hidden');
+                manageMembersBtn.classList.add('hidden');
             }
 
             renderGroupList();
@@ -397,7 +443,6 @@
                     const item = document.createElement('div');
                     item.className = `p-3 transition hover:bg-indigo-50 flex justify-between items-center ${isActive ? 'bg-indigo-50 border-l-4 border-indigo-600' : ''}`;
                     
-                    // 左側をクリックしたときのみ選択
                     const infoDiv = document.createElement('div');
                     infoDiv.className = "flex-1 cursor-pointer overflow-hidden pr-2";
                     infoDiv.onclick = () => selectTopic(topicId, data.title, data.createdByUserName);
@@ -407,7 +452,6 @@
                     `;
                     item.appendChild(infoDiv);
 
-                    // 削除権限がある場合のみゴミ箱アイコンを表示
                     if (canDelete) {
                         const deleteBtn = document.createElement('button');
                         deleteBtn.className = "text-gray-400 hover:text-red-600 p-1.5 transition text-xs";
@@ -452,10 +496,10 @@
                     const msgEl = document.createElement('div');
                     msgEl.className = `flex gap-3 ${isMe ? 'flex-row-reverse' : ''}`;
                     msgEl.innerHTML = `
-                        <img src="${msg.photoURL || 'https://via.placeholder.com/40'}" class="w-8 h-8 rounded-full object-cover shadow-sm">
-                        <div class="max-w-md">
+                        <img src="${msg.photoURL || 'https://via.placeholder.com/40'}" class="w-8 h-8 rounded-full object-cover shadow-sm flex-shrink-0">
+                        <div class="max-w-[75%] md:max-w-md">
                             <div class="text-[10px] text-gray-500 mb-0.5 ${isMe ? 'text-right' : ''}">${escapeHTML(msg.userName)} <span class="text-gray-400 ml-1">${timeStr}</span></div>
-                            <div class="p-2.5 rounded-xl text-xs ${isMe ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-white text-gray-800 rounded-tl-none shadow-sm border border-gray-100'}">
+                            <div class="p-2.5 rounded-xl text-xs ${isMe ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-white text-gray-800 rounded-tl-none shadow-sm border border-gray-100'} break-words">
                                 ${escapeHTML(msg.text)}
                             </div>
                         </div>
@@ -483,7 +527,6 @@
             });
         };
 
-        // ★ トピック削除処理
         async function handleDeleteTopic(topicId, topicTitle) {
             if (!confirm(`トピック「${topicTitle}」を削除しますか？`)) return;
             try {
@@ -498,7 +541,6 @@
             }
         }
 
-        // ★ グループ削除処理（管理者限定）
         window.handleDeleteGroup = async () => {
             if (!isAdmin) return alert("管理者権限が必要です");
             const group = myGroups.find(g => g.id === currentGroupId);
@@ -507,27 +549,90 @@
             if (!confirm(`本当にグループ「${group.title}」を削除しますか？\n（この操作は取り消せません）`)) return;
 
             try {
-                // 1. 該当グループのメンバーシップ情報を一括削除
                 const memQuery = query(collection(db, "memberships"), where("groupId", "==", currentGroupId));
                 const memSnapshot = await getDocs(memQuery);
                 for (let mDoc of memSnapshot.docs) {
                     await deleteDoc(doc(db, "memberships", mDoc.id));
                 }
 
-                // 2. グループ本体を削除
                 await deleteDoc(doc(db, "groups", currentGroupId));
 
-                // 3. 画面をリセット
                 currentGroupId = null;
                 currentTopicId = null;
                 document.getElementById('group-active-content').classList.add('hidden');
                 document.getElementById('no-group-selected').classList.remove('hidden');
                 document.getElementById('delete-group-btn').classList.add('hidden');
+                document.getElementById('manage-members-btn').classList.add('hidden');
 
                 await loadUserGroups();
                 alert("グループを削除しました。");
             } catch (e) {
                 alert("グループ削除エラー: " + e.message);
+            }
+        };
+
+        // ★ メンバー管理（キック）モーダルを開く
+        window.openMembersModal = async () => {
+            if (!currentGroupId || !isAdmin) return;
+            const modal = document.getElementById('members-modal');
+            const listEl = document.getElementById('members-list');
+            listEl.innerHTML = '<p class="text-xs text-gray-400 p-4 text-center">読み込み中...</p>';
+            modal.classList.remove('hidden');
+
+            try {
+                // 1. このグループのメンバーシップを取得
+                const memQuery = query(collection(db, "memberships"), where("groupId", "==", currentGroupId));
+                const memSnapshot = await getDocs(memQuery);
+
+                listEl.innerHTML = '';
+                if (memSnapshot.empty) {
+                    listEl.innerHTML = '<p class="text-xs text-gray-400 p-4 text-center">メンバーがいません。</p>';
+                    return;
+                }
+
+                for (let memDoc of memSnapshot.docs) {
+                    const memData = memDoc.data();
+                    const membershipId = memDoc.id;
+
+                    // 2. ユーザー情報を取得
+                    const userDoc = await getDoc(doc(db, "users", memData.uid));
+                    const userData = userDoc.exists() ? userDoc.data() : { name: "不明なユーザー", email: "" };
+
+                    const item = document.createElement('div');
+                    item.className = "py-2.5 flex items-center justify-between";
+                    item.innerHTML = `
+                        <div class="flex items-center gap-2.5 overflow-hidden">
+                            <img src="${userData.photoURL || 'https://via.placeholder.com/40'}" class="w-8 h-8 rounded-full object-cover">
+                            <div class="overflow-hidden">
+                                <div class="font-bold text-xs text-gray-800 truncate">${escapeHTML(userData.name)}</div>
+                                <div class="text-[10px] text-gray-400 truncate">${escapeHTML(userData.email || '')}</div>
+                            </div>
+                        </div>
+                        ${memData.uid === currentUser.uid ? 
+                            '<span class="text-[10px] bg-gray-100 text-gray-500 px-2 py-1 rounded">あなた</span>' : 
+                            `<button onclick="kickMember('${membershipId}', '${escapeHTML(userData.name)}')" class="bg-red-50 hover:bg-red-100 text-red-600 text-xs px-2.5 py-1 rounded font-bold transition">キック</button>`
+                        }
+                    `;
+                    listEl.appendChild(item);
+                }
+            } catch (e) {
+                listEl.innerHTML = `<p class="text-xs text-red-500 p-4 text-center">エラー: ${e.message}</p>`;
+            }
+        };
+
+        window.closeMembersModal = () => {
+            document.getElementById('members-modal').classList.add('hidden');
+        };
+
+        // ★ メンバーをキック（除名）する処理
+        window.kickMember = async (membershipId, memberName) => {
+            if (!confirm(`本当に「${memberName}」をこのグループからキックしますか？`)) return;
+            try {
+                await deleteDoc(doc(db, "memberships", membershipId));
+                alert(`${memberName} をキックしました。`);
+                openMembersModal(); // リストを再読み込み
+            } catch (e) {
+                alert("キックエラー: " + e.message);
             }
         };
 
@@ -552,16 +657,32 @@
             }
 
             const groupDoc = snapshot.docs[0];
+            const groupId = groupDoc.id;
+
+            const memberCheckQ = query(
+                collection(db, "memberships"), 
+                where("uid", "==", currentUser.uid),
+                where("groupId", "==", groupId)
+            );
+            const memberCheckSnapshot = await getDocs(memberCheckQ);
+
+            if (!memberCheckSnapshot.empty) {
+                alert("すでにこのグループに参加しています！");
+                closeJoinModal();
+                document.getElementById('join-code-input').value = '';
+                return;
+            }
+
             await addDoc(collection(db, "memberships"), {
                 uid: currentUser.uid,
-                groupId: groupDoc.id,
+                groupId: groupId,
                 joinedAt: serverTimestamp()
             });
 
             closeJoinModal();
             document.getElementById('join-code-input').value = '';
             await loadUserGroups();
-            selectGroup(groupDoc.id);
+            selectGroup(groupId);
         };
 
         window.handleCreateGroup = async (e) => {
@@ -571,6 +692,14 @@
             const title = document.getElementById('create-title-input').value.trim();
             const desc = document.getElementById('create-desc-input').value.trim();
             const code = document.getElementById('create-code-input').value.trim().toUpperCase();
+
+            const codeCheckQ = query(collection(db, "groups"), where("code", "==", code));
+            const codeCheckSnapshot = await getDocs(codeCheckQ);
+
+            if (!codeCheckSnapshot.empty) {
+                alert("この入室コードはすでに使用されています。別のコードを指定してください。");
+                return;
+            }
 
             const groupRef = await addDoc(collection(db, "groups"), {
                 title, desc, code,
