@@ -14,7 +14,6 @@
     <!-- ヘッダー -->
     <header class="bg-slate-800 text-white px-4 md:px-6 py-3 flex justify-between items-center shadow-md z-40">
         <div class="flex items-center gap-3">
-            <!-- スマホ用メニュー開閉ボタン -->
             <button onclick="toggleSidebar()" class="md:hidden text-slate-300 hover:text-white p-1.5 focus:outline-none">
                 <i class="fa-solid fa-bars text-xl"></i>
             </button>
@@ -47,10 +46,9 @@
     <!-- ログイン後メイン画面 -->
     <div id="app-view" class="flex-1 flex relative overflow-hidden hidden">
         
-        <!-- モバイル用背景オーバーレイ（初期状態は完全に非表示・pointer-events-noneでクリックブロックを防止） -->
         <div id="sidebar-overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/50 z-20 hidden pointer-events-none md:hidden"></div>
 
-        <!-- 左サイドバー：グループ一覧 -->
+        <!-- 左サイドバー -->
         <aside id="sidebar" class="absolute md:relative inset-y-0 left-0 w-72 bg-slate-900 text-slate-300 flex flex-col border-r border-slate-800 z-30 transform -translate-x-full md:translate-x-0 transition-transform duration-200 ease-in-out">
             <div class="p-4 border-b border-slate-800 space-y-2">
                 <button onclick="openJoinModal()" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 py-2 px-3 rounded-lg text-sm font-medium transition flex items-center justify-center gap-2 border border-slate-700">
@@ -113,11 +111,11 @@
                             </button>
                         </div>
                         <div id="topic-list" class="flex-1 overflow-y-auto divide-y divide-gray-100">
-                            <!-- トピックがここに並びます -->
+                            <!-- トピック一覧 -->
                         </div>
                     </div>
 
-                    <!-- 選択されたトピックのチャット詳細 -->
+                    <!-- チャット詳細 -->
                     <div id="chat-container" class="flex-1 flex flex-col bg-slate-50 h-full absolute md:relative inset-0 z-20 hidden md:flex">
                         <div id="no-topic-selected" class="flex-1 flex flex-col items-center justify-center text-gray-400 p-6 text-center">
                             <i class="fa-regular fa-folder-open text-4xl md:text-5xl mb-2 text-gray-300"></i>
@@ -139,12 +137,28 @@
 
                             <div id="message-timeline" class="flex-1 overflow-y-auto p-3 md:p-4 space-y-3"></div>
 
+                            <!-- メッセージ＆画像送信フォーム -->
                             <div class="p-2 md:p-3 bg-white border-t border-gray-200">
-                                <form onsubmit="handlePostMessage(event)" class="flex gap-2">
-                                    <input type="text" id="post-input" placeholder="返信を入力..." required class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                                    <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 md:px-4 py-2 rounded-lg text-xs font-bold transition shadow flex items-center gap-1">
-                                        <i class="fa-solid fa-paper-plane"></i> <span class="hidden sm:inline">送信</span>
-                                    </button>
+                                <form onsubmit="handlePostMessage(event)" class="flex flex-col gap-2">
+                                    <!-- 画像プレビュー領域 -->
+                                    <div id="image-preview-container" class="hidden relative inline-block w-20 h-20">
+                                        <img id="image-preview" src="" class="w-full h-full object-cover rounded-lg border border-gray-300">
+                                        <button type="button" onclick="clearImage()" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center shadow"><i class="fa-solid fa-xmark"></i></button>
+                                    </div>
+
+                                    <div class="flex gap-2 items-center">
+                                        <!-- 画像選択ボタン -->
+                                        <label class="cursor-pointer bg-gray-100 hover:bg-gray-200 text-gray-600 px-3 py-2 rounded-lg text-xs transition flex items-center justify-center border border-gray-300">
+                                            <i class="fa-regular fa-image text-sm"></i>
+                                            <input type="file" id="image-input" accept="image/*" onchange="previewImage(event)" class="hidden">
+                                        </label>
+
+                                        <input type="text" id="post-input" placeholder="メッセージまたは返信を入力..." class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                        
+                                        <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 md:px-4 py-2 rounded-lg text-xs font-bold transition shadow flex items-center gap-1">
+                                            <i class="fa-solid fa-paper-plane"></i> <span class="hidden sm:inline">送信</span>
+                                        </button>
+                                    </div>
                                 </form>
                             </div>
                         </div>
@@ -183,7 +197,7 @@
 
     <div id="create-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center hidden z-50 p-4">
         <div class="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
-            <h3 class="text-lg font-bold mb-1">新規グループ名作成</h3>
+            <h3 class="text-lg font-bold mb-1">新規グループ作成</h3>
             <form onsubmit="handleCreateGroup(event)" class="space-y-4 mt-3">
                 <div>
                     <label class="block text-xs font-semibold text-gray-600 mb-1">グループ名</label>
@@ -250,10 +264,31 @@
         let currentTopicId = null;
         let unsubscribeTopics = null;
         let unsubscribeMessages = null;
+        let selectedBase64Image = null; // 選択された画像のデータ
 
         const ADMIN_PASSWORD = "Tomoya@0317";
 
-        // サイドバーの開閉制御（pointer-eventsも切り替えてクリック阻害を防ぐ）
+        // 画像選択時のプレビュー処理
+        window.previewImage = (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                selectedBase64Image = e.target.result;
+                document.getElementById('image-preview').src = selectedBase64Image;
+                document.getElementById('image-preview-container').classList.remove('hidden');
+            };
+            reader.readAsDataURL(file);
+        };
+
+        // 選択した画像をクリア
+        window.clearImage = () => {
+            selectedBase64Image = null;
+            document.getElementById('image-input').value = '';
+            document.getElementById('image-preview-container').classList.add('hidden');
+        };
+
         window.toggleSidebar = () => {
             const sidebar = document.getElementById('sidebar');
             const overlay = document.getElementById('sidebar-overlay');
@@ -382,7 +417,6 @@
                 item.onclick = () => {
                     selectGroup(g.id);
                     if (window.innerWidth < 768) {
-                        // スマホでグループを選んだらサイドバーを閉じる
                         document.getElementById('sidebar').classList.add('-translate-x-full');
                         document.getElementById('sidebar-overlay').classList.add('hidden', 'pointer-events-none');
                     }
@@ -510,12 +544,18 @@
 
                     const msgEl = document.createElement('div');
                     msgEl.className = `flex gap-3 ${isMe ? 'flex-row-reverse' : ''}`;
+                    
+                    // 画像がついている場合のHTML構成
+                    let imageHtml = msg.image ? `<img src="${msg.image}" class="mt-2 rounded-lg max-w-full max-h-48 object-cover">` : '';
+                    let textHtml = msg.text ? `<div class="break-words">${escapeHTML(msg.text)}</div>` : '';
+
                     msgEl.innerHTML = `
                         <img src="${msg.photoURL || 'https://via.placeholder.com/40'}" class="w-8 h-8 rounded-full object-cover shadow-sm flex-shrink-0">
                         <div class="max-w-[75%] md:max-w-md">
                             <div class="text-[10px] text-gray-500 mb-0.5 ${isMe ? 'text-right' : ''}">${escapeHTML(msg.userName)} <span class="text-gray-400 ml-1">${timeStr}</span></div>
-                            <div class="p-2.5 rounded-xl text-xs ${isMe ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-white text-gray-800 rounded-tl-none shadow-sm border border-gray-100'} break-words">
-                                ${escapeHTML(msg.text)}
+                            <div class="p-2.5 rounded-xl text-xs ${isMe ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-white text-gray-800 rounded-tl-none shadow-sm border border-gray-100'}">
+                                ${textHtml}
+                                ${imageHtml}
                             </div>
                         </div>
                     `;
@@ -525,21 +565,31 @@
             });
         }
 
+        // メッセージと画像の送信処理
         window.handlePostMessage = async (e) => {
             e.preventDefault();
             if (!currentGroupId || !currentTopicId || !currentUser) return;
             const input = document.getElementById('post-input');
             const text = input.value.trim();
-            if (!text) return;
 
-            input.value = '';
-            await addDoc(collection(db, `groups/${currentGroupId}/topics/${currentTopicId}/messages`), {
+            if (!text && !selectedBase64Image) return;
+
+            const messageData = {
                 uid: currentUser.uid,
                 userName: currentUser.displayName,
                 photoURL: currentUser.photoURL,
                 text: text,
                 createdAt: serverTimestamp()
-            });
+            };
+
+            if (selectedBase64Image) {
+                messageData.image = selectedBase64Image;
+            }
+
+            input.value = '';
+            clearImage();
+
+            await addDoc(collection(db, `groups/${currentGroupId}/topics/${currentTopicId}/messages`), messageData);
         };
 
         async function handleDeleteTopic(topicId, topicTitle) {
