@@ -64,7 +64,7 @@
             </div>
 
             <div class="flex-1 overflow-y-auto p-3 space-y-1" id="group-list">
-                <p class="text-xs text-slate-500 p-2">参加中のグループ</p>
+                <p class="text-xs text-slate-500 p-2">読み込み中...</p>
             </div>
             
             <div class="p-3 border-t border-slate-800 bg-slate-950/50 flex justify-between items-center text-xs">
@@ -274,7 +274,7 @@
         let currentUser = null;
         let isAdmin = false;
         let myGroups = [];
-        let groupMembers = []; // カレントグループのメンバー保持
+        let groupMembers = [];
         let currentGroupId = null;
         let currentTopicId = null;
         let unsubscribeTopics = null;
@@ -283,10 +283,11 @@
         let isAnnouncementExpanded = false;
 
         const ADMIN_PASSWORD = "Tomoya@0317";
-        // ★ Firebase Consoleで発行したVAPID鍵をここに貼り付けてください
         const VAPID_KEY = "BMK6B2X_mKLlNSvZdIid7B4wCmdR12Lcwtf-Igjl5UP0e2mEH5hBKYMwVYG2odpuz744XUjZAVMV2p7ap1l_Bfo"; 
 
-        // サービスワーカー登録と通知許可
+        // 起動時にローカルストレージから前回選択していたグループを復元
+        const savedGroupId = localStorage.getItem('last_group_id');
+
         window.requestNotificationPermission = async () => {
             try {
                 const permission = await Notification.requestPermission();
@@ -298,15 +299,13 @@
                         document.getElementById('enable-notify-btn').classList.add('hidden');
                     }
                 } else {
-                    alert("通知許可が拒否されました。ブラウザの設定から変更できます。");
+                    alert("通知許可が拒否されました。");
                 }
             } catch (e) {
                 console.error("通知設定エラー:", e);
-                alert("通知設定に失敗しました: VAPID鍵が設定されているか確認してください。");
             }
         };
 
-        // フォアグラウンドメッセージ受領時の処理
         onMessage(messaging, (payload) => {
             if (payload.notification) {
                 new Notification(payload.notification.title, {
@@ -329,7 +328,6 @@
         window.previewImage = (event) => {
             const file = event.target.files[0];
             if (!file) return;
-
             const reader = new FileReader();
             reader.onload = (e) => {
                 selectedBase64Image = e.target.result;
@@ -398,7 +396,7 @@
                     photoURL: user.photoURL
                 }, { merge: true });
 
-                loadUserGroups();
+                await loadUserGroups();
             } else {
                 unauthView.classList.remove('hidden');
                 appView.classList.add('hidden');
@@ -408,7 +406,6 @@
             }
         });
 
-        // メンション入力時の候補ポップアップ制御
         window.handleMentionInput = (e) => {
             const inputVal = e.target.value;
             const popup = document.getElementById('mention-popup');
@@ -500,10 +497,20 @@
                 }
             }
             renderGroupList();
+
+            // 保存されていたグループがあれば自動選択
+            if (savedGroupId && myGroups.some(g => g.id === savedGroupId)) {
+                selectGroup(savedGroupId);
+            }
         }
 
         function renderGroupList() {
             const listEl = document.getElementById('group-list');
+            if (myGroups.length === 0) {
+                listEl.innerHTML = `<p class="text-xs text-slate-500 p-2">参加中のグループはありません</p>`;
+                return;
+            }
+
             listEl.innerHTML = `<p class="text-xs text-slate-500 p-2">参加中のグループ (${myGroups.length})</p>`;
             
             myGroups.forEach(g => {
@@ -530,11 +537,11 @@
 
         async function selectGroup(groupId) {
             currentGroupId = groupId;
+            localStorage.setItem('last_group_id', groupId); // 選択状態を保存
             currentTopicId = null;
             const group = myGroups.find(g => g.id === groupId);
             if (!group) return;
 
-            // グループメンバーリスト読み込み（メンション補完用）
             const memQuery = query(collection(db, "memberships"), where("groupId", "==", groupId));
             const memSnapshot = await getDocs(memQuery);
             groupMembers = [];
@@ -657,7 +664,6 @@
                         announcements.push({ id: msgId, ...msg });
                     }
 
-                    // 自分がメンションされているかチェックしてハイライト
                     const isMentioned = currentUser && msg.text && msg.text.includes(`@${currentUser.displayName}`);
                     const highlightClass = isMentioned ? "bg-amber-100 border-amber-300 font-medium" : (isMe ? "bg-indigo-600 text-white" : "bg-white text-gray-800");
 
@@ -875,6 +881,7 @@
 
                 currentGroupId = null;
                 currentTopicId = null;
+                localStorage.removeItem('last_group_id');
                 document.getElementById('group-active-content').classList.add('hidden');
                 document.getElementById('no-group-selected').classList.remove('hidden');
                 document.getElementById('delete-group-btn').classList.add('hidden');
