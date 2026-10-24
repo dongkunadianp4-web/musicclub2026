@@ -51,7 +51,7 @@
         <div id="sidebar-overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/50 z-20 hidden md:hidden"></div>
 
         <!-- 左サイドバー：グループ一覧 -->
-        <aside id="sidebar" class="absolute md:relative inset-y-0 left-0 w-72 bg-slate-900 text-slate-300 flex flex-col border-r border-slate-800 z-30 transform -translate-x-full md:translate-x-0 transition-transform duration-200 ease-in-out">
+        <aside id="sidebar" class="absolute md:relative inset-y-0 left-0 w-72 bg-slate-900 text-slate-300 flex flex-col border-r border-slate-800 z-35 transform -translate-x-full md:translate-x-0 transition-transform duration-200 ease-in-out">
             <div class="p-4 border-b border-slate-800 space-y-2">
                 <button onclick="openJoinModal()" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 py-2 px-3 rounded-lg text-sm font-medium transition flex items-center justify-center gap-2 border border-slate-700">
                     <i class="fa-solid fa-key text-indigo-400"></i> コードでグループ参加
@@ -92,22 +92,20 @@
                         <span id="current-group-code" class="bg-slate-100 text-slate-600 font-mono text-[11px] md:text-xs px-2 py-1 rounded border border-slate-200">
                             コード: ------
                         </span>
-                        <!-- メンバー管理ボタン（管理者のみ表示） -->
                         <button id="manage-members-btn" onclick="openMembersModal()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 text-xs px-2.5 py-1 rounded-lg font-bold transition hidden items-center gap-1 shadow-sm">
-                            <i class="fa-solid fa-users-gear"></i> メンバー管理
+                            <i class="fa-solid fa-users-gear"></i> メンバー
                         </button>
-                        <!-- グループ削除ボタン（管理者のみ表示） -->
                         <button id="delete-group-btn" onclick="handleDeleteGroup()" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs px-2.5 py-1 rounded-lg font-bold transition hidden items-center gap-1 shadow-sm">
                             <i class="fa-solid fa-trash-can"></i> 削除
                         </button>
                     </div>
                 </div>
 
-                <!-- 内部レイアウト -->
-                <div class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+                <!-- 内部レイアウト：スマホでは一覧とチャットを切り替え -->
+                <div class="flex-1 flex overflow-hidden relative">
                     
-                    <!-- トピック一覧 -->
-                    <div id="topic-container" class="w-full md:w-80 bg-white border-r border-gray-200 flex flex-col h-full">
+                    <!-- トピック一覧 (スマホではチャット非表示時は全画面、表示時はhidden) -->
+                    <div id="topic-container" class="w-full md:w-80 bg-white border-r border-gray-200 flex flex-col h-full absolute md:relative inset-0 z-10">
                         <div class="p-2.5 md:p-3 border-b border-gray-200 flex justify-between items-center bg-gray-50">
                             <span class="text-xs font-bold text-gray-600 uppercase tracking-wider"><i class="fa-solid fa-list-ul mr-1"></i> フォーラム一覧</span>
                             <button onclick="openTopicModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-2.5 py-1.5 rounded-lg font-bold transition flex items-center gap-1 shadow-sm">
@@ -119,8 +117,8 @@
                         </div>
                     </div>
 
-                    <!-- 選択されたトピックのチャット詳細 -->
-                    <div id="chat-container" class="flex-1 flex flex-col bg-slate-50 h-full">
+                    <!-- 選択されたトピックのチャット詳細 (スマホでは初期状態はhidden、一覧から選ぶと全画面で表示) -->
+                    <div id="chat-container" class="flex-1 flex flex-col bg-slate-50 h-full absolute md:relative inset-0 z-20 hidden md:flex">
                         <div id="no-topic-selected" class="flex-1 flex flex-col items-center justify-center text-gray-400 p-6 text-center">
                             <i class="fa-regular fa-folder-open text-4xl md:text-5xl mb-2 text-gray-300"></i>
                             <p class="text-xs">トピックを選択してください</p>
@@ -129,8 +127,9 @@
                         <div id="topic-active-content" class="flex-1 flex flex-col h-full hidden">
                             <div class="bg-white px-3 md:px-4 py-2 border-b border-gray-200 shadow-sm flex items-center justify-between">
                                 <div class="flex items-center gap-2 overflow-hidden">
-                                    <button onclick="backToTopicList()" class="md:hidden text-indigo-600 hover:text-indigo-800 text-xs font-bold px-2 py-1 bg-indigo-50 rounded border border-indigo-100">
-                                        <i class="fa-solid fa-arrow-left mr-1"></i>一覧
+                                    <!-- スマホ用：トピック一覧に戻るボタン -->
+                                    <button onclick="backToTopicList()" class="md:hidden text-indigo-600 hover:text-indigo-800 text-xs font-bold px-2.5 py-1.5 bg-indigo-50 rounded-lg border border-indigo-200 flex items-center gap-1">
+                                        <i class="fa-solid fa-arrow-left"></i> 一覧へ
                                     </button>
                                     <div class="overflow-hidden">
                                         <h3 id="current-topic-title" class="text-xs md:text-sm font-bold text-gray-800 truncate">トピック名</h3>
@@ -157,21 +156,18 @@
         </main>
     </div>
 
-    <!-- モーダル：メンバー管理（キック用） -->
+    <!-- モーダル各種 -->
     <div id="members-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center hidden z-50 p-4">
         <div class="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl flex flex-col max-h-[80vh]">
             <h3 class="text-lg font-bold mb-1">メンバー管理（キック）</h3>
             <p class="text-xs text-gray-500 mb-4">グループに参加しているメンバーの一覧です</p>
-            <div id="members-list" class="flex-1 overflow-y-auto divide-y divide-gray-100 mb-4 pr-1">
-                <!-- メンバーリストがここに動的に入ります -->
-            </div>
+            <div id="members-list" class="flex-1 overflow-y-auto divide-y divide-gray-100 mb-4 pr-1"></div>
             <div class="flex justify-end pt-2 border-t border-gray-100">
                 <button type="button" onclick="closeMembersModal()" class="px-4 py-2 text-sm bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-bold">閉じる</button>
             </div>
         </div>
     </div>
 
-    <!-- モーダル：グループ入室 -->
     <div id="join-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center hidden z-50 p-4">
         <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
             <h3 class="text-lg font-bold mb-1">グループに入室</h3>
@@ -186,7 +182,6 @@
         </div>
     </div>
 
-    <!-- モーダル：グループ作成 -->
     <div id="create-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center hidden z-50 p-4">
         <div class="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
             <h3 class="text-lg font-bold mb-1">新規グループ作成</h3>
@@ -211,7 +206,6 @@
         </div>
     </div>
 
-    <!-- モーダル：新規トピック作成 -->
     <div id="topic-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center hidden z-50 p-4">
         <div class="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
             <h3 class="text-lg font-bold mb-1">新規トピック作成</h3>
@@ -267,8 +261,14 @@
             overlay.classList.toggle('hidden');
         };
 
+        // ★ スマホでトピック一覧に戻る処理
         window.backToTopicList = () => {
             currentTopicId = null;
+            // スマホではチャット画面を隠し、トピック一覧を表示する
+            if (window.innerWidth < 768) {
+                document.getElementById('chat-container').classList.add('hidden');
+                document.getElementById('topic-container').classList.remove('hidden');
+            }
             document.getElementById('no-topic-selected').classList.remove('hidden');
             document.getElementById('topic-active-content').classList.add('hidden');
         };
@@ -400,6 +400,11 @@
 
             document.getElementById('no-group-selected').classList.add('hidden');
             document.getElementById('group-active-content').classList.remove('hidden');
+            
+            // グループ選択時はスマホでもトピック一覧を表示状態に戻す
+            document.getElementById('topic-container').classList.remove('hidden');
+            document.getElementById('chat-container').classList.add('hidden', 'md:flex');
+
             document.getElementById('no-topic-selected').classList.remove('hidden');
             document.getElementById('topic-active-content').classList.add('hidden');
             
@@ -476,6 +481,12 @@
             document.getElementById('current-topic-title').textContent = title;
             document.getElementById('current-topic-author').textContent = `作成者: ${authorName || 'メンバー'}`;
 
+            // ★ スマホ画面ではトピック一覧を隠してチャット画面を全画面表示にする
+            if (window.innerWidth < 768) {
+                document.getElementById('topic-container').classList.add('hidden');
+                document.getElementById('chat-container').classList.remove('hidden');
+            }
+
             listenMessages(currentGroupId, topicId);
             listenTopics(currentGroupId);
         }
@@ -533,6 +544,10 @@
                 await deleteDoc(doc(db, `groups/${currentGroupId}/topics`, topicId));
                 if (currentTopicId === topicId) {
                     currentTopicId = null;
+                    if (window.innerWidth < 768) {
+                        document.getElementById('chat-container').classList.add('hidden');
+                        document.getElementById('topic-container').classList.remove('hidden');
+                    }
                     document.getElementById('no-topic-selected').classList.remove('hidden');
                     document.getElementById('topic-active-content').classList.add('hidden');
                 }
@@ -571,7 +586,6 @@
             }
         };
 
-        // ★ メンバー管理（キック）モーダルを開く
         window.openMembersModal = async () => {
             if (!currentGroupId || !isAdmin) return;
             const modal = document.getElementById('members-modal');
@@ -580,7 +594,6 @@
             modal.classList.remove('hidden');
 
             try {
-                // 1. このグループのメンバーシップを取得
                 const memQuery = query(collection(db, "memberships"), where("groupId", "==", currentGroupId));
                 const memSnapshot = await getDocs(memQuery);
 
@@ -594,7 +607,6 @@
                     const memData = memDoc.data();
                     const membershipId = memDoc.id;
 
-                    // 2. ユーザー情報を取得
                     const userDoc = await getDoc(doc(db, "users", memData.uid));
                     const userData = userDoc.exists() ? userDoc.data() : { name: "不明なユーザー", email: "" };
 
@@ -624,13 +636,12 @@
             document.getElementById('members-modal').classList.add('hidden');
         };
 
-        // ★ メンバーをキック（除名）する処理
         window.kickMember = async (membershipId, memberName) => {
             if (!confirm(`本当に「${memberName}」をこのグループからキックしますか？`)) return;
             try {
                 await deleteDoc(doc(db, "memberships", membershipId));
                 alert(`${memberName} をキックしました。`);
-                openMembersModal(); // リストを再読み込み
+                openMembersModal();
             } catch (e) {
                 alert("キックエラー: " + e.message);
             }
